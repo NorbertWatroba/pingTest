@@ -18,7 +18,7 @@ def ping_custom(follow_list):
     stop_threads = True
 
 
-def waiter():
+def animated_slash():
     animation_sequence = r"|/-\\"
     idx = 0
     while True:
@@ -45,7 +45,7 @@ while True:
 
     run_io_tasks_in_parallel([
         lambda: ping_custom(follow_list),
-        lambda: waiter(),
+        lambda: animated_slash(),
     ])
 
     time.sleep(7)

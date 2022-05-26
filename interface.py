@@ -4,112 +4,130 @@ import json
 from pick import pick
 
 
-def append_list_validation(string):
-    list = string.split(';')
+def append_validation(_user_input):
+    list = _user_input.split(';')
     output = []
-    for e in list:
-        element = e.strip().split('/')
+    for element in list:
+        element = element.strip().split('/')
         if element != ['']:
             output.append({"ip_address": element[0], "name": element[1]})
     return output
 
 
-def append_single_validation(string):
-    element = string.split('/')
-    output = {"ip_address": element[0], "name": element[1]}
-    return output
+def parse_list():
+    if not os.path.exists('list.JSON'):
+        open('list.JSON', 'x').close()
+    try:
+        with open('list.JSON', 'r') as f:
+            json_data = json.load(f)
+            follow_list = [json_dict for json_dict in json_data]
+    except json.decoder.JSONDecodeError:
+        follow_list = []
+    return follow_list
 
 
-try:
-    with open('list.JSON', 'r') as f:
-        json_data = json.load(f)
-        follow_list = [json_dict for json_dict in json_data]
-except json.decoder.JSONDecodeError:
-    follow_list = []
+def add_address(follow_list):
+    os.system('clear')
+    print('Dodawanie'.center(50, '-'))
+    while True:
+        user_input = input('Podaj adresy do monitorowania:\n')
+        if user_input == 'q':
+            break
+        elif re.match(r'((\d{1,3}\.){1,3}\d{1,3}/.+)', user_input):
+            extension = append_validation(user_input)
+            for ex_item in extension[::-1]:
+                for item in follow_list:
+                    if ex_item['name'] == item['name']:
+                        item['ip_address'] = ex_item['ip_address']
+                        extension.remove(ex_item)
+            follow_list.extend(extension)
+            with open('list.JSON', 'w') as f:
+                f.write(json.dumps(follow_list, indent=2))
+            break
+        else:
+            print('Prawidłowy format to: adres_ip/nazwa; ... (q to quit)')
+    main()
 
-operation_list = ['Dodaj', 'Usuń', 'Pokaż listę']
 
-os.system('clear')
+def delete(follow_list):
+    while True:
+        os.system('clear')
+        print('Usuwanie'.center(50, '-'))
+        if follow_list:
+            for pos, item in enumerate(follow_list, start=1):
+                print(f'{pos:<3} - {item["ip_address"]:>15} / {item["name"]}')
+            user_input = input('Przestań monitorować:\n')
 
-print('Witaj'.center(50, '-'))
+            if user_input == 'q':
+                break
 
-while True:
-    title = 'Witaj'
+            elif user_input == 'all':
+                follow_list.clear()
+                break
+
+            else:
+                objects = user_input.split('; ')
+                for object in objects:
+                    ###############################3
+                    if re.match(r'\d+', object):
+                        if int(object) > len(follow_list):
+                            print(f'index {object} does not exist\n')
+                            choice = input('[c] to correct\t[q] to quit\n')
+                            if choice == 'q':
+                                break
+                            elif choice == 'c':
+                                delete(follow_list)
+                        else:
+                            follow_list.pop(int(user_input) - 1)
+                            with open('list.JSON', 'w') as f:
+                                f.write(json.dumps(follow_list, indent=2))
+                            continue
+
+                    else:
+                        present = False
+                        for item in follow_list:
+                            if item['name'] == object:
+                                follow_list.remove(item)
+                                present = True
+                                with open('list.JSON', 'w') as f:
+                                    f.write(json.dumps(follow_list, indent=2))
+                        if not present:
+                            print(f'{object} nie istnieje')
+                            choice = input('[c] to correct\t[q] to quit\n')
+                            if choice == 'q':
+                                break
+                            elif choice == 'c':
+                                delete(follow_list)
+        else:
+            print('Nie monitorujesz żadnych pojazdów')
+            input('<exit')
+            break
+    main()
+
+
+def main():
+    follow_list = parse_list()
+    os.system('clear')
+
+    title = 'Lista akcji:'
     options = ['Dodaj', 'Usuń', 'Pokaż listę']
     option, index = pick(options, title)
     match option:
         case 'Dodaj':
-            print('Podaj adresy do monitorowania:')
-            while True:
-                string = input('')
-                if string == 'q':
-                    os.system('clear')
-                    break
-                if re.match(r'((\d{1,3}\.){1,3}\d{1,3}/.+;\s)+', string):
-                    ex = append_list_validation(string)
-                    for i in ex[::-1]:
-                        for item in follow_list:
-                            if i['name'] == item['name']:
-                                item['ip_address'] = i['ip_address']
-                                ex.remove(i)
-                    follow_list.extend(ex)
-                    with open('list.JSON', 'w') as f:
-                        f.write(json.dumps(follow_list, indent=2))
-                    os.system('clear')
-                    break
-                elif re.match(r'(\d{1,3}\.){1,3}\d{1,3}/.+', string):
-                    ex = (append_single_validation(string))
-                    for item in follow_list:
-                        if item['name'] == ex['name']:
-                            item['ip_address'] = ex['ip_address']
-                            os.system('clear')
-                            break
-
-                    with open('list.JSON', 'w') as f:
-                        f.write(json.dumps(follow_list, indent=2))
-                    os.system('clear')
-                    break
-                else:
-                    print('Prawidłowy format to: adres_ip/nazwa; ...')
-
+            add_address(follow_list)
         case 'Usuń':
-            while True:
-                if follow_list:
-                    for pos, i in enumerate(follow_list, start=1):
-                        print(f'{pos:<3} - {i["ip_address"]:>15} / {i["name"]}')
-                    print('Przestań monitorować:')
-                    string = input('')
-                    if string == 'q':
-                        os.system('clear')
-                        break
-                    objects = string.split('; ')
-                    for o in objects:
-                        present = False
-                        if o == 'all':
-                            follow_list.clear()
-                            os.system('clear')
-                            break
-                        else:
-
-                            for i in follow_list:
-                                if i['name'] == o:
-                                    follow_list.remove(i)
-                                    present = True
-                                    with open('list.JSON', 'w') as f:
-                                        f.write(json.dumps(follow_list, indent=2))
-                        if not present:
-                            print(f'{o} nie istnieje')
-                    os.system('clear')
-                    break
-                else:
-                    print('Nie monitorujesz żadnych pojazdów')
-                    os.system('clear')
-                    break
-
+            delete(follow_list)
         case 'Pokaż listę':
-
+            os.system('clear')
+            print('Lista'.center(50, '-'))
             if follow_list:
-                for pos, i in enumerate(follow_list, start=1):
-                    print(f'{pos} - {i["ip_address"]:>15} / {i["name"]}')
+                for pos, item in enumerate(follow_list, start=1):
+                    print(f'{pos} - {item["ip_address"]:>15} / {item["name"]}')
             else:
                 print('Lista jest pusta')
+            input('<exit')
+            main()
+
+
+if __name__ == '__main__':
+    main()
