@@ -10,7 +10,7 @@ def append_validation(_user_input):
     for element in list:
         element = element.strip().split('/')
         if element != ['']:
-            output.append({"ip_address": element[0], "name": element[1]})
+            output.append({"ip_address": element[0], "name": element[1], "flag": True})
     return output
 
 
@@ -54,8 +54,9 @@ def delete(follow_list):
         os.system('clear')
         print('Usuwanie'.center(50, '-'))
         if follow_list:
+            error_objects = []
             for pos, item in enumerate(follow_list, start=1):
-                print(f'{pos:<3} - {item["ip_address"]:>15} / {item["name"]}')
+                print(f'{pos:<2} - {item["ip_address"]:>15} / {item["name"]}')
             user_input = input('Przestań monitorować:\n')
 
             if user_input == 'q':
@@ -63,13 +64,14 @@ def delete(follow_list):
 
             elif user_input == 'all':
                 follow_list.clear()
+                with open('list.JSON', 'w') as f:
+                    f.write(json.dumps(follow_list, indent=2))
                 break
 
             else:
                 objects = user_input.split('; ')
                 for object in objects:
-                    ###############################3
-                    if re.match(r'\d+', object):
+                    if re.match(r'^\d+$', object):
                         if int(object) > len(follow_list):
                             print(f'index {object} does not exist\n')
                             choice = input('[c] to correct\t[q] to quit\n')
@@ -78,10 +80,9 @@ def delete(follow_list):
                             elif choice == 'c':
                                 delete(follow_list)
                         else:
-                            follow_list.pop(int(user_input) - 1)
+                            follow_list.pop(int(object) - 1)
                             with open('list.JSON', 'w') as f:
                                 f.write(json.dumps(follow_list, indent=2))
-                            continue
 
                     else:
                         present = False
@@ -92,12 +93,16 @@ def delete(follow_list):
                                 with open('list.JSON', 'w') as f:
                                     f.write(json.dumps(follow_list, indent=2))
                         if not present:
-                            print(f'{object} nie istnieje')
-                            choice = input('[c] to correct\t[q] to quit\n')
-                            if choice == 'q':
-                                break
-                            elif choice == 'c':
-                                delete(follow_list)
+                            error_objects.append(object)
+
+                if error_objects:
+                    error = ', '.join(error_objects)
+                    print(f'error: Objects {error} not found')
+                    choice = input('[c] to correct\t[q] to quit\n')
+                    if choice == 'q':
+                        break
+                    elif choice == 'c':
+                        delete(follow_list)
         else:
             print('Nie monitorujesz żadnych pojazdów')
             input('<exit')
@@ -110,7 +115,7 @@ def main():
     os.system('clear')
 
     title = 'Lista akcji:'
-    options = ['Dodaj', 'Usuń', 'Pokaż listę']
+    options = ['Dodaj', 'Usuń', 'Pokaż listę', 'Do widzenia']
     option, index = pick(options, title)
     match option:
         case 'Dodaj':
@@ -122,11 +127,13 @@ def main():
             print('Lista'.center(50, '-'))
             if follow_list:
                 for pos, item in enumerate(follow_list, start=1):
-                    print(f'{pos} - {item["ip_address"]:>15} / {item["name"]}')
+                    print(f'{pos:<2} - {item["ip_address"]:>15} / {item["name"]}')
             else:
                 print('Lista jest pusta')
             input('<exit')
             main()
+        case 'Do widzenia':
+            exit()
 
 
 if __name__ == '__main__':
