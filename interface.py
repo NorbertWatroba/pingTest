@@ -5,12 +5,20 @@ from pick import pick
 
 
 def append_validation(_user_input):
-    list = _user_input.split(';')
+    list = _user_input.split('; ')
     output = []
+    error_list = []
     for element in list:
-        element = element.strip().split('/')
-        if element != ['']:
-            output.append({"ip_address": element[0], "name": element[1], "flag": True})
+        if re.match(r'(.+/(\d{1,3}\.){3}\d{1,3})', element):
+            element = element.split('/')
+            output.append({"ip_address": element[1], "name": element[0], "flag": True})
+        else:
+            error_list.append(element)
+    if error_list:
+        error = ', '.join(error_list)
+        print(f'Incorrect input format for {error}\n'
+              'Appropriate format is: name/ip_address; ...')
+        input('<exit')
     return output
 
 
@@ -27,37 +35,36 @@ def parse_list():
 
 
 def add_address(follow_list):
-    os.system('clear')
-    print('Dodawanie'.center(50, '-'))
+    os.system(clear)
+    print(' Extend the list '.center(50, '-'))
     while True:
-        user_input = input('Podaj adresy do monitorowania:\n')
+        user_input = input('Provide locomotives info to follow:\n')
         if user_input == 'q':
             break
-        elif re.match(r'((\d{1,3}\.){1,3}\d{1,3}/.+)', user_input):
-            extension = append_validation(user_input)
-            for ex_item in extension[::-1]:
-                for item in follow_list:
-                    if ex_item['name'] == item['name']:
-                        item['ip_address'] = ex_item['ip_address']
-                        extension.remove(ex_item)
-            follow_list.extend(extension)
-            with open('list.JSON', 'w') as f:
-                f.write(json.dumps(follow_list, indent=2))
-            break
-        else:
-            print('Prawidłowy format to: adres_ip/nazwa; ... (q to quit)')
+        extension = append_validation(user_input)
+        for ex_item in extension[::-1]:
+            for item in follow_list:
+                if ex_item['name'] == item['name']:
+                    item['ip_address'] = ex_item['ip_address']
+                    extension.remove(ex_item)
+        follow_list.extend(extension)
+        with open('list.JSON', 'w') as f:
+            f.write(json.dumps(follow_list, indent=2))
+        break
     main()
 
 
 def delete(follow_list):
     while True:
-        os.system('clear')
-        print('Usuwanie'.center(50, '-'))
+        os.system(clear)
+        print(' Deleting '.center(50, '-'))
         if follow_list:
             error_objects = []
+            index_list = []
+            name_list = []
             for pos, item in enumerate(follow_list, start=1):
                 print(f'{pos:<2} - {item["ip_address"]:>15} / {item["name"]}')
-            user_input = input('Przestań monitorować:\n')
+            user_input = input('Stop following:\n')
 
             if user_input == 'q':
                 break
@@ -72,28 +79,26 @@ def delete(follow_list):
                 objects = user_input.split('; ')
                 for object in objects:
                     if re.match(r'^\d+$', object):
-                        if int(object) > len(follow_list):
-                            print(f'index {object} does not exist\n')
-                            choice = input('[c] to correct\t[q] to quit\n')
-                            if choice == 'q':
-                                break
-                            elif choice == 'c':
-                                delete(follow_list)
-                        else:
-                            follow_list.pop(int(object) - 1)
-                            with open('list.JSON', 'w') as f:
-                                f.write(json.dumps(follow_list, indent=2))
-
+                        index_list.append(int(object)-1)
                     else:
+                        name_list.append(object)
+                if index_list:
+                    index_list.sort(reverse=True)
+                    for index in index_list:
+                        follow_list.pop(index)
+                    with open('list.JSON', 'w') as f:
+                        f.write(json.dumps(follow_list, indent=2))
+                if name_list:
+                    for name in name_list:
                         present = False
                         for item in follow_list:
-                            if item['name'] == object:
+                            if item['name'] == name:
                                 follow_list.remove(item)
                                 present = True
                                 with open('list.JSON', 'w') as f:
                                     f.write(json.dumps(follow_list, indent=2))
                         if not present:
-                            error_objects.append(object)
+                            error_objects.append(name)
 
                 if error_objects:
                     error = ', '.join(error_objects)
@@ -104,37 +109,57 @@ def delete(follow_list):
                     elif choice == 'c':
                         delete(follow_list)
         else:
-            print('Nie monitorujesz żadnych pojazdów')
+            print("You're not following anything")
             input('<exit')
             break
     main()
 
 
+def get_label(option):
+    return f'{option["ip_address"]:<15} / {option["name"]:6} - {option["flag"]}'
+
+
+def show_list(follow_list):
+    if follow_list:
+        os.system(clear)
+        selected = pick(follow_list, options_map_func=get_label, multiselect=True)
+        for select in selected:
+            select[0]['flag'] = not select[0]['flag']
+
+        with open('list.JSON', 'w') as f:
+            f.write(json.dumps(follow_list, indent=2))
+    else:
+        print("You're not following anything")
+        input('<exit')
+    main()
+
+
+def set_frequency():
+    os.system(clear)
+    print('Set-frequency'.center(50, '-'))
+    # config('FREQUENCY') = input('\n\nSet pinging frequency (in seconds):\n')
+
+
 def main():
     follow_list = parse_list()
-    os.system('clear')
+    os.system(clear)
 
     title = 'Lista akcji:'
-    options = ['Dodaj', 'Usuń', 'Pokaż listę', 'Do widzenia']
-    option, index = pick(options, title)
+    options = ['Add', 'Delete', 'Show the list', 'Ping frequency (coming soon)', 'Good bye!']
+    option, index = pick(options, title, indicator='=>')
     match option:
-        case 'Dodaj':
+        case 'Add':
             add_address(follow_list)
-        case 'Usuń':
+        case 'Delete':
             delete(follow_list)
-        case 'Pokaż listę':
-            os.system('clear')
-            print('Lista'.center(50, '-'))
-            if follow_list:
-                for pos, item in enumerate(follow_list, start=1):
-                    print(f'{pos:<2} - {item["ip_address"]:>15} / {item["name"]}')
-            else:
-                print('Lista jest pusta')
-            input('<exit')
+        case 'Show the list':
+            show_list(follow_list)
+        case 'Ping frequency (coming soon)':
             main()
         case 'Do widzenia':
             exit()
 
 
 if __name__ == '__main__':
+    clear = 'clear'
     main()

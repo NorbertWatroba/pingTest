@@ -8,6 +8,8 @@ from decouple import config
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from pushbullet import Pushbullet
+
 
 def run_io_tasks_in_parallel(tasks):
     with ThreadPoolExecutor() as executor:
@@ -24,16 +26,29 @@ def waiting():
 
 def ping_custom(follow_list):
     for item in follow_list:
-        response = ping(item['ip_address'], verbose=False)
-        print(response.packets_lost)
-        while True:
-            if response.packets_lost == 0.0:
-                send_mail(item['name'], item['ip_address'])
-                break
-            elif response.packets_lost == 1.0:
-                break
+        if item['flag']:
+            response = ping(item['ip_address'], verbose=True)
+            while True:
+                if response.packets_lost == 0.0:
+                    item['flag'] = False
+                    with open('list.JSON', 'w') as f:
+                        f.write(json.dumps(follow_list, indent=2))
+                    # send_mail(item['name'], item['ip_address'])
+                    push(item['name'], item['ip_address'])
+                    break
+                elif response.packets_lost == 1.0:
+                    break
     global stop_threads
     stop_threads = True
+
+
+def push(name, ip):
+    global pb
+    pb.push_note('New locomotive active', f'response from {name} (ip address {ip})')
+
+    # device = pb.devices[0]
+    # print(device)
+    # pb.push_sms(device, '+48#########', 'Wiadomość wysłana automatycznie')
 
 
 def send_mail(name, ip):
@@ -82,21 +97,46 @@ def animated_slash(speed: float):
             break
 
 
-while True:
+def main():
+    while True:
+        global stop_threads
+        stop_threads = False
+        try:
+            with open('list.JSON', 'r') as f:
+                json_data = json.load(f)
+                follow_list = [json_dict for json_dict in json_data]
+        except json.decoder.JSONDecodeError:
+            follow_list = []
+
+        run_io_tasks_in_parallel([
+            lambda: ping_custom(follow_list),
+            lambda: animated_slash(0.1),
+        ])
+
+        run_io_tasks_in_parallel([
+            lambda: waiting(),
+            lambda: animated_slash(0.5)
+        ])
+
+'''
+def remote_management():
+    listener = pb.new_device('listener')
+    while True:
+
+        pushes = listener.get_pushes()
+        for push in pushes:
+            if push['type'] == 'note':
+                listener.dismiss_push(push['iden'])
+                print(push['body'].strip())
+
+'''
+if __name__ == '__main__':
     stop_threads = False
-    try:
-        with open('list.JSON', 'r') as f:
-            json_data = json.load(f)
-            follow_list = [json_dict for json_dict in json_data]
-    except json.decoder.JSONDecodeError:
-        follow_list = []
-
+    pb = Pushbullet(config('PUSH_BULLET_TOKEN'))
+    main()
+'''    
     run_io_tasks_in_parallel([
-        lambda: ping_custom(follow_list),
-        lambda: animated_slash(0.1),
+        lambda: main(),
+        lambda: remote_management()
     ])
-
-    run_io_tasks_in_parallel([
-        lambda: waiting(),
-        lambda: animated_slash(0.5)
-    ])
+'''
